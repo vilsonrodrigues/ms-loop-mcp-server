@@ -37,6 +37,19 @@ describe('resourceFromToken', () => {
 });
 
 describe('extractTokensFromEntries', () => {
+  it('ignores null and primitive storage values', () => {
+    const entries: StorageEntry[] = [
+      { name: 'null-entry', value: 'null' },
+      { name: 'number-entry', value: '42' },
+      accessEntry('a-accesstoken-substrate', 'https://substrate.office.com/.default', {
+        exp: future, aud: 'https://substrate.office.com',
+      }),
+      { name: 'a-refreshtoken', value: JSON.stringify({ credentialType: 'RefreshToken', clientId: LOOP_CLIENT_ID, secret: 'rt' }) },
+    ];
+
+    expect(extractTokensFromEntries(entries)?.substrateToken).toBeTruthy();
+  });
+
   it('selects tokens by audience and finds the refresh token', () => {
     const entries: StorageEntry[] = [
       accessEntry('a-accesstoken-substrate', 'https://substrate.office.com/.default', {

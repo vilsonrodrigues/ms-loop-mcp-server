@@ -124,13 +124,15 @@ export function extractTokensFromEntries(entries: StorageEntry[]): ExtractedToke
     const value = item.value;
     if (typeof value !== 'string') continue;
 
-    let entry: MsalEntry;
+    let parsed: unknown;
     try {
-      entry = JSON.parse(value) as MsalEntry;
+      parsed = JSON.parse(value) as unknown;
     } catch {
       continue;
     }
-    if (!entry.secret) continue;
+    if (!parsed || typeof parsed !== 'object') continue;
+    const entry = parsed as MsalEntry;
+    if (typeof entry.secret !== 'string' || !entry.secret) continue;
 
     const key = item.name.toLowerCase();
 

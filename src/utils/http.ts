@@ -71,10 +71,10 @@ export function buildSharePointGetBody(token: string, boundary: string): string 
     `--${boundary}`,
     `Authorization: Bearer ${token}`,
     'X-HTTP-Method-Override: GET',
+    'prefer: manualredirect',
     '_post: 1',
     '',
     `--${boundary}--`,
-    '',
   ].join('\r\n');
 }
 
@@ -87,7 +87,7 @@ export async function sharePointGet(url: string, token: string): Promise<Respons
   return fetchWithRetry(url, {
     method: 'POST',
     headers: {
-      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+      'Content-Type': `multipart/form-data;boundary=${boundary}`,
       Origin: LOOP_ORIGIN,
       Referer: `${LOOP_ORIGIN}/`,
       'User-Agent': LOOP_USER_AGENT,

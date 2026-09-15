@@ -7,7 +7,9 @@ describe('buildSharePointGetBody', () => {
     expect(body).toContain('--BOUNDARY');
     expect(body).toContain('Authorization: Bearer tok123');
     expect(body).toContain('X-HTTP-Method-Override: GET');
-    expect(body.trimEnd().endsWith('--BOUNDARY--')).toBe(true);
+    expect(body).toContain('prefer: manualredirect');
+    expect(body.endsWith('--BOUNDARY--')).toBe(true);
+    expect(body.endsWith('\r\n')).toBe(false);
   });
 });
 

@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Match the current SharePoint multipart format when exporting Loop pages, and discover the tenant SharePoint resource automatically when it was not captured during initial login.
+
 ## [0.2.1] - 2026-09-10
 
 ### Documentation

@@ -14,13 +14,17 @@
 import { logger } from '../utils/logger.js';
 import {
   LOOP_CLIENT_ID,
+  LOOP_API_BASE,
   LOOP_ORIGIN,
+  LOOP_USER_AGENT,
   SUBSTRATE_SCOPE,
   GRAPH_SCOPE,
   LOOP_API_SCOPE,
   TOKEN_ENDPOINT_TEMPLATE,
 } from '../constants.js';
 import { readTokenCache, writeTokenCache, type TokenCache } from './session-store.js';
+import { decodePodId } from '../utils/parsers.js';
+import type { LoopWorkspace } from '../types/loop.js';
 
 const REFRESH_TIMEOUT_MS = 10_000;
 
@@ -144,18 +148,74 @@ export function refreshLoopApiToken(): Promise<string | null> {
   }));
 }
 
-/**
- * Refresh the SharePoint token. Requires a known SharePoint resource host
- * (e.g. https://contoso.sharepoint.com) discovered during login; without it
- * we cannot form the resource scope.
- */
-export function refreshSharePointToken(): Promise<string | null> {
-  const cache = readTokenCache();
-  if (!cache?.sharePointResource) {
-    logger.debug('No SharePoint resource cached — cannot refresh SharePoint token');
-    return Promise.resolve(null);
+/** Derive the tenant SharePoint resource from any workspace storage pointer. */
+export function inferSharePointResource(workspaces: LoopWorkspace[]): string | null {
+  for (const workspace of workspaces) {
+    const coordinates = decodePodId(workspace.mfs_info?.pod_id);
+    if (coordinates) return `https://${coordinates.host}`;
   }
-  const scope = `${cache.sharePointResource}/.default`;
+  return null;
+}
+
+/**
+ * Loop does not request a SharePoint token until a workspace is opened. A
+ * first login can therefore cache Substrate/Graph tokens without knowing the
+ * tenant's SharePoint host. Discover that host from the user's workspace pod
+ * before attempting the SharePoint refresh grant.
+ */
+async function discoverSharePointResource(): Promise<string | null> {
+  let cache = readTokenCache();
+  if (!cache) return null;
+  if (cache.sharePointResource) return cache.sharePointResource;
+
+  let substrateToken = cache.substrateToken;
+  if (!substrateToken || !cache.substrateTokenExpiry || cache.substrateTokenExpiry <= Date.now()) {
+    substrateToken = await refreshSubstrateToken() ?? undefined;
+    cache = readTokenCache();
+  }
+  if (!substrateToken || !cache) return null;
+
+  try {
+    const res = await fetch(`${LOOP_API_BASE}/workspaces?rs=en-us`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${substrateToken}`,
+        Accept: 'application/json',
+        Origin: LOOP_ORIGIN,
+        'User-Agent': LOOP_USER_AGENT,
+      },
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      logger.debug(`Could not discover SharePoint resource: Substrate HTTP ${res.status}`);
+      return null;
+    }
+    const data = await res.json() as { workspaces?: LoopWorkspace[] };
+    const resource = inferSharePointResource(data.workspaces ?? []);
+    if (!resource) return null;
+
+    const latest = readTokenCache();
+    if (!latest) return null;
+    writeTokenCache({ ...latest, sharePointResource: resource });
+    logger.info(`Discovered SharePoint resource ${resource}`);
+    return resource;
+  } catch (err) {
+    logger.debug('Could not discover SharePoint resource', err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+/**
+ * Refresh the SharePoint token. If login did not capture a SharePoint resource
+ * host, discover it from the user's workspace metadata first.
+ */
+export async function refreshSharePointToken(): Promise<string | null> {
+  const resource = await discoverSharePointResource();
+  if (!resource) {
+    logger.debug('No SharePoint resource cached — cannot refresh SharePoint token');
+    return null;
+  }
+  const scope = `${resource}/.default`;
   return refreshResource('sharepoint', scope, (c, token, expiry) => ({
     ...c,
     sharePointToken: token,

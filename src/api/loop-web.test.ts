@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLoopPage, decodeLoopWebPageId, encodeLoopWebPageId, listLoopPages, modifyLoopPage, readLoopPage } from './loop-web.js';
+import { LOOP_CLIENT_SCENARIO } from '../constants.js';
 
 vi.mock('../auth/index.js', () => ({
   getLoopApiToken: vi.fn(async () => 'loop-token'),
@@ -79,5 +80,7 @@ describe('Loop Web Service requests', () => {
     ));
     await expect(listLoopPages('pod/id=')).resolves.toEqual({ pages: [] });
     expect(fetchMock.mock.calls[0][0]).toContain('/workspaces/pod%2Fid%3D/pages/list');
+    const headers = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
+    expect(headers['X-Client-Scenario']).toBe(LOOP_CLIENT_SCENARIO);
   });
 });

@@ -58,6 +58,9 @@ export const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 /** Internal Loop Web Service used by the Loop clients for page operations. */
 export const LOOP_WEB_SERVICE_BASE = 'https://prod.api.loop.cloud.microsoft/v0.1';
 
+/** Registered Microsoft 365 client scenario for Loop chat and page operations. */
+export const LOOP_CLIENT_SCENARIO = 'B89678C7-1E95-4908-A56C-EDD884A4CB08';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Token / Refresh
 // ─────────────────────────────────────────────────────────────────────────────

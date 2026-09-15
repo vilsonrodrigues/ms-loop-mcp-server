@@ -9,6 +9,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - Match the current SharePoint multipart format when exporting Loop pages, and discover the tenant SharePoint resource automatically when it was not captured during initial login.
+- Send the registered Microsoft 365 client scenario required by the Loop Web Service for page listing, reads, creation, and updates.
 
 ## [0.2.1] - 2026-09-10
 

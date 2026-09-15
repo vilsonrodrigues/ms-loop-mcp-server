@@ -9,7 +9,12 @@
 
 import { randomUUID } from 'node:crypto';
 import { getLoopApiToken } from '../auth/index.js';
-import { LOOP_ORIGIN, LOOP_USER_AGENT, LOOP_WEB_SERVICE_BASE } from '../constants.js';
+import {
+  LOOP_CLIENT_SCENARIO,
+  LOOP_ORIGIN,
+  LOOP_USER_AGENT,
+  LOOP_WEB_SERVICE_BASE,
+} from '../constants.js';
 import { fetchWithRetry, parseResponse } from '../utils/http.js';
 import type { SpoCoordinates } from '../types/loop.js';
 import { isSharePointHost } from '../utils/parsers.js';
@@ -114,6 +119,7 @@ async function loopWebRequest<T>(method: string, path: string, body?: unknown, m
       Origin: LOOP_ORIGIN,
       Referer: `${LOOP_ORIGIN}/`,
       'User-Agent': LOOP_USER_AGENT,
+      'X-Client-Scenario': LOOP_CLIENT_SCENARIO,
       'MS-CV': randomUUID(),
     },
     body: body === undefined ? undefined : JSON.stringify(body),

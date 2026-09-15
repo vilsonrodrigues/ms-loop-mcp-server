@@ -13,10 +13,11 @@ import {
   encodeLoopWebPageId,
   listLoopPages,
   modifyLoopPage,
+  moveLoopPage,
   readLoopPage,
-  type CreatePageRequest,
   type ModifyPageRequest,
   type LoopWebPageListItem,
+  type PageTreeLocation,
 } from '../api/loop-web.js';
 import { decodePodId } from '../utils/parsers.js';
 import type { LoopPage, LoopWorkspace } from '../types/loop.js';
@@ -51,6 +52,32 @@ function errorResult(action: string, err: unknown) {
 
 function findWorkspace(workspaces: LoopWorkspace[], workspaceId: string): LoopWorkspace | undefined {
   return workspaces.find(w => w.id === workspaceId || w.mfs_info?.pod_id === workspaceId);
+}
+
+type TreeLocationResult =
+  | { ok: true; location: PageTreeLocation }
+  | { ok: false; message: string };
+
+/**
+ * Build a page-tree location from position + parent/sibling element ids.
+ * Shared by loop_create_page (placement at creation) and loop_move_page
+ * (repositioning an existing page) since both accept the same shape.
+ */
+function buildTreeLocation(
+  position: 'first' | 'last' | 'before' | 'after',
+  parentElementId: string | undefined,
+  siblingElementId: string | undefined,
+): TreeLocationResult {
+  if (position === 'before' || position === 'after') {
+    if (!siblingElementId) {
+      return { ok: false, message: `sibling_element_id is required with position ${position}.` };
+    }
+    return { ok: true, location: { type: position, sibling: siblingElementId } };
+  }
+  return {
+    ok: true,
+    location: parentElementId ? { type: position, parent: parentElementId } : { type: position },
+  };
 }
 
 function flattenLoopWebPages(
@@ -193,27 +220,51 @@ export function registerPageTools(server: McpServer): void {
 
         const apiWorkspaceId = workspace.mfs_info?.pod_id ?? workspace.id;
         const selectedPosition = position ?? 'last';
-        let location: CreatePageRequest['location'];
-        if (selectedPosition === 'before' || selectedPosition === 'after') {
-          if (!sibling_element_id) {
-            return toolResult({ success: false, message: `sibling_element_id is required with position ${selectedPosition}.` });
-          }
-          location = { type: selectedPosition, sibling: sibling_element_id };
-        } else {
-          location = parent_element_id
-            ? { type: selectedPosition, parent: parent_element_id }
-            : { type: selectedPosition };
-        }
+        const locationResult = buildTreeLocation(selectedPosition, parent_element_id, sibling_element_id);
+        if (!locationResult.ok) return toolResult({ success: false, message: locationResult.message });
 
         const created = await createLoopPage(apiWorkspaceId, {
           title,
           content: { type: 'raw', value: content ?? '' },
-          location,
+          location: locationResult.location,
           ...(share_scope ? { shareLinkOptions: { scope: share_scope } } : {}),
         });
         return toolResult({ success: true, message: `Created Loop page "${title}".`, page: created.page });
       } catch (err) {
         return errorResult('Page creation failed', err);
+      }
+    },
+  );
+
+  // ── loop_move_page ──────────────────────────────────────────────────────
+  server.tool(
+    'loop_move_page',
+    'Move an existing Loop page to a new position in its workspace tree — reparent it under a different page, or reorder it relative to a sibling. Does not change the page title or content.',
+    {
+      page_id: z.string().min(1).describe('Page id from loop_list_pages or loop_create_page.'),
+      position: z.enum(['first', 'last', 'before', 'after']).describe('New position. first/last are relative to parent_element_id (or the workspace root if omitted); before/after require sibling_element_id.'),
+      parent_element_id: z.string().min(1).optional().describe('Move as a child of this page element id; valid with first/last. Omit to place at the workspace root.'),
+      sibling_element_id: z.string().min(1).optional().describe('Sibling element id to move before/after; required with before/after.'),
+    },
+    async ({ page_id, position, parent_element_id, sibling_element_id }) => {
+      try {
+        const locationResult = buildTreeLocation(position, parent_element_id, sibling_element_id);
+        if (!locationResult.ok) return toolResult({ success: false, message: locationResult.message });
+
+        let coordinates = decodeLoopWebPageId(page_id);
+        if (!coordinates) {
+          const { pages, workspaces } = await discover();
+          const page = pages.find(p => p.id === page_id);
+          if (!page) return toolResult({ success: false, message: `No page found or invalid Loop page id: ${page_id}.` });
+          const resolved = resolvePageCoordinates(page, workspaceFallback(workspaces, page.workspace_id));
+          if (!resolved) return toolResult({ success: false, message: `Could not resolve SharePoint coordinates for page ${page_id}.` });
+          coordinates = resolved;
+        }
+
+        await moveLoopPage(encodeLoopWebPageId(coordinates), { location: locationResult.location });
+        return toolResult({ success: true, message: `Moved Loop page ${page_id}.`, id: page_id });
+      } catch (err) {
+        return errorResult('Page move failed', err);
       }
     },
   );

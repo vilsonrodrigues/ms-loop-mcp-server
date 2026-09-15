@@ -14,6 +14,7 @@ Unofficial local `stdio` MCP server for Microsoft Loop.
 | `loop_get_page` | Read a page as Markdown or exported HTML |
 | `loop_create_page` | Create a page from Markdown |
 | `loop_update_page` | Rename, append, prepend, replace a section, or replace a page body |
+| `loop_move_page` | Move a page to a new position in its workspace tree (reparent or reorder) |
 | `loop_search` | Search Loop files through Microsoft Graph |
 | `loop_create_workspace` | Create a shared workspace |
 
@@ -29,6 +30,9 @@ Unofficial local `stdio` MCP server for Microsoft Loop.
 - The server is single-user. Every operation runs with the permissions of the
   Microsoft account authenticated through `loop_login`.
 - `loop_create_workspace` is less mature than the page operations.
+- `loop_move_page` reuses the page-tree placement shape observed on page
+  creation; it is not separately documented by Microsoft and may need
+  adjustment if the Loop Web Service changes.
 
 ## Requirements
 

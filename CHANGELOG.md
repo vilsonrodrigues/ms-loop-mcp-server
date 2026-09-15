@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `loop_move_page` for reparenting or reordering an existing page within its workspace tree, without touching its title or content.
+
 ## [0.2.1] - 2026-09-10
 
 ### Documentation

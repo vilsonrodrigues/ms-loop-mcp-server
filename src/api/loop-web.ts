@@ -25,13 +25,30 @@ export interface RawPageContent {
   };
 }
 
+/**
+ * A page's position within its workspace's page tree: either as the first or
+ * last child of a parent (root-level when `parent` is omitted), or immediately
+ * before/after a sibling element. Used both to place a page at creation time
+ * and, via `moveLoopPage`, to reposition an already-created page.
+ */
+export type PageTreeLocation =
+  | { type: 'first' | 'last'; parent?: string }
+  | { type: 'before' | 'after'; sibling: string };
+
 export interface CreatePageRequest {
   title: string;
   content: RawPageContent;
-  location:
-    | { type: 'first' | 'last'; parent?: string }
-    | { type: 'before' | 'after'; sibling: string };
+  location: PageTreeLocation;
   shareLinkOptions?: { scope: 'organization' | 'users' | 'default' };
+}
+
+/**
+ * Reposition an existing page within its workspace's tree (move to a new
+ * parent, or before/after a different sibling). Content and title are left
+ * untouched — use `modifyLoopPage` for those.
+ */
+export interface MovePageRequest {
+  location: PageTreeLocation;
 }
 
 export interface CreatePageResponse {
@@ -131,6 +148,17 @@ export function createLoopPage(workspaceId: string, request: CreatePageRequest):
 }
 
 export function modifyLoopPage(pageId: string, request: ModifyPageRequest): Promise<void> {
+  return loopWebRequest<void>('PATCH', `/pages/${segment(pageId)}`, request);
+}
+
+/**
+ * Move an existing page to a new position in its workspace's tree (reparent,
+ * or reorder relative to a sibling). Uses the same PATCH endpoint as
+ * `modifyLoopPage`, but with the tree-placement `location` shape the service
+ * accepts at creation time, rather than the content-insertion `location`
+ * shape `modifyLoopPage` uses.
+ */
+export function moveLoopPage(pageId: string, request: MovePageRequest): Promise<void> {
   return loopWebRequest<void>('PATCH', `/pages/${segment(pageId)}`, request);
 }
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLoopPage, decodeLoopWebPageId, encodeLoopWebPageId, listLoopPages, modifyLoopPage, readLoopPage } from './loop-web.js';
+import { createLoopPage, decodeLoopWebPageId, encodeLoopWebPageId, listLoopPages, modifyLoopPage, moveLoopPage, readLoopPage } from './loop-web.js';
 
 vi.mock('../auth/index.js', () => ({
   getLoopApiToken: vi.fn(async () => 'loop-token'),
@@ -61,6 +61,17 @@ describe('Loop Web Service requests', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toContain('/pages/page%2Fid%3D');
     expect(init?.method).toBe('PATCH');
+  });
+
+  it('moves a page with a tree-placement location via PATCH', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
+    await moveLoopPage('page/id=', { location: { type: 'after', sibling: 'sibling-element-1' } });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('/pages/page%2Fid%3D');
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(init?.body as string)).toEqual({
+      location: { type: 'after', sibling: 'sibling-element-1' },
+    });
   });
 
   it('requests Markdown when reading a page', async () => {
